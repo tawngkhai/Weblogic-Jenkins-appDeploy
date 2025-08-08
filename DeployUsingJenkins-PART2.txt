@@ -1,0 +1,84 @@
+LAB: Deploy a WAR File to WebLogic Server Using Jenkins
+---------------------------------------------------------------------------------------------------
+Prerequisites
+---------------------------------------------------------------------------------------------------
+- Jenkins	
+- Oracle WebLogic
+- WAR file	
+---------------------------------------------------------------------------------------------------
+Overview of the Process
+---------------------------------------------------------------------------------------------------
+- Install and configure Jenkins.
+- create a deployment script (deploy.py) using WLST.
+- create a .
+- Deployment file is ready 
+---------------------------------------------------------------------------------------------------
+Install Jenkins
+------------------------------------------------------------------------------------------------
+Create WLST Script
+Create /u01/jenkins/code/deploy.py:
+# deploy.py
+
+import sys
+adminUrl = sys.argv[1]
+username = sys.argv[2]
+password = sys.argv[3]
+appPath = sys.argv[4]
+appName = sys.argv[5]
+
+connect(username, password, adminUrl)
+deploy(appName=appName, path=appPath, targets='AdminServer', upload='true')
+disconnect()
+exit()
+
+Place the WAR File in /u01/jenkins/code
+--------------------------------------------------------------------------------------------------
+Create a Jenkins Pipeline Job
+
+In Jenkins UI:
+Go to New Item
+Name: Deploy-To-WebLogic
+Select: Pipeline
+Click OK
+
+Define the Pipeline Script
+
+Paste the following pipeline into the Pipeline Script field:
+
+pipeline {
+    agent any
+    environment {
+        WLST_PATH = '/u01/data/middleware/oracle_common/common/bin/wlst.sh'    // update this
+        ADMIN_URL = 't3://172.31.41.166:7001'
+        ADMIN_USER = 'weblogic'        // Replace with your user
+        ADMIN_PASS = 'weblogic123'     // Use Jenkins credentials if needed
+        APP_NAME = 'mybank'
+        WAR_PATH = 'mybank.war'
+        SCRIPT = 'deploy.py'
+    }
+    stages {
+        stage('Deploy WAR to WebLogic') {
+            steps {
+                dir('/u01/jenkins/code') {
+                    sh """
+                    ${WLST_PATH} ${SCRIPT} ${ADMIN_URL} ${ADMIN_USER} ${ADMIN_PASS} ${WAR_PATH} ${APP_NAME}
+                    """
+                }
+            }
+        }
+    }
+}
+
+Run and Verify
+
+Save the Jenkins pipeline.
+Click "Build Now".
+
+---------------------------------------------------------------------------
+
+Monitor Console Output for:
+Connecting to t3://localhost:7001
+Deploying application...
+Deployment completed.
+
+Validate from console

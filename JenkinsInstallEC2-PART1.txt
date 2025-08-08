@@ -1,0 +1,142 @@
+Create Linux Machine AWS
+ 1- master
+ 2 -agent
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 1: Connect to the EC2 Instance
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 2: Update the System
+-------------------------------------------------------------------------------------------------------------------------------------------
+sudo dnf update -y
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 3: Install Java 17 (Required for Jenkins)
+-------------------------------------------------------------------------------------------------------------------------------------------
+sudo dnf install java-17-openjdk -y
+
+Verify the installation:
+java -version
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 4: Add Jenkins Repository
+-------------------------------------------------------------------------------------------------------------------------------------------
+sudo dnf install -y wget
+
+sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+
+- This command downloads the Jenkins repository configuration file (jenkins.repo) and saves it to the /etc/yum.repos.d/ directory to configure Jenkins'  
+  package repository for YUM-based Linux distributions (like CentOS, RHEL).
+
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+
+- This command imports the Jenkins repository's GPG key (jenkins.io-2023.key) to your system to verify the authenticity of the Jenkins packages before 
+  installation.
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 5: Install Jenkins
+-------------------------------------------------------------------------------------------------------------------------------------------
+sudo dnf install jenkins -y
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 6: Start and Enable Jenkins Service
+-------------------------------------------------------------------------------------------------------------------------------------------
+Start the Jenkins service:
+sudo systemctl start jenkins
+
+Enable Jenkins to start on boot:
+sudo systemctl enable jenkins
+
+Check the service status:
+sudo systemctl status jenkins
+
+To restart jenkins
+sudo systemctl restart jenkins
+
+Check Version
+jenkins --version
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 7: Configure Firewall (If Enabled)
+-------------------------------------------------------------------------------------------------------------------------------------------
+Allow port 8080 for Jenkins access:
+
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --reload
+
+--Check if Firewall is Enabled
+  sudo systemctl status firewalld
+--To stop and disable firewalld (Red Hat's default firewall service):
+  sudo systemctl stop firewalld
+  sudo systemctl disable firewalld
+--Verify that the firewall is disabled:
+  sudo systemctl status firewalld
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 8: Get Jenkins Initial Admin Password
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+Retrieve the admin password from the Jenkins installation:
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+Copy the password for later use.    
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 9: Access Jenkins Web Interface
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+#EC2 Machine - Add inbound rule to allow traffic from outside on port 8080
+
+Open a web browser and go to:
+- http://<your-ec2-public-ip>:8080                         Example- http://ec2-52-198-18-203.ap-northeast-1.compute.amazonaws.com:8080
+Enter the admin password from Step 8
+Install suggested plugins or choose custom plugins.
+Create an admin user and complete the setup
+-------------------------------------------------------------------------------------------------------------------------------------------
+Step 10: Verify Jenkins is Running
+-------------------------------------------------------------------------------------------------------------------------------------------
+sudo systemctl status jenkins
+
+If needed, restart jenkins:
+sudo systemctl stop jenkins
+sudo systemctl start jenkins
+
+LOGS:
+/var/log/dnf.log
+
+sudo journalctl -u jenkins
+sudo journalctl -u jenkins | grep "plugin"
+
+
+---------------------------------------------------------------------------------------------------------------------------------------
+Uninstall
+---------------------------------------------------------------------------------------------------------------------------------------
+Step 1: Stop Jenkins service
+Before uninstalling, it's good practice to stop the Jenkins service:
+sudo systemctl stop jenkins
+sudo rm -rf /var/lib/jenkins/*
+sudo rm -rf /var/lib/jenkins
+
+Step 2: Disable Jenkins service (optional)
+This step ensures that Jenkins does not start automatically on boot:
+sudo systemctl disable jenkins
+
+Step 3: Uninstall Jenkins
+Use the following command to uninstall Jenkins:
+sudo dnf remove jenkins -y
+sudo rm -rf /var/cache/jenkins
+
+Step 4: Remove the Jenkins repository
+To clean up the repository configuration, you can remove the Jenkins repo file:
+sudo rm /etc/yum.repos.d/jenkins.repo
+
+Step 5: Remove Jenkins GPG key (optional)
+If you want to remove the GPG key for Jenkins as well:
+sudo rpm -e jenkins.io-2023.key
+
+Step 6: Clean up leftover files (optional)
+If you want to remove any leftover dependencies that were installed with Jenkins and are no longer required, run:
+sudo dnf autoremove -y
+
+This should fully uninstall Jenkins from your system.
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+

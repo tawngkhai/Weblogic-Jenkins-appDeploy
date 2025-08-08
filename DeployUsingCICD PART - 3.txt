@@ -1,0 +1,274 @@
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Install Maven, Git
+------------------------------------------------------------------------------------------------------------------------------------------------------
+ 
+yum install -y maven git
+
+mvn -version
+git --version
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Install Java, Jenkins and plugins
+------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Install additional plugins:
+
+Git
+Pipeline
+GitHub plugin
+Maven Integration Plugin
+
+Configure tools under Manage Jenkins → Tool:
+
+JDK: Name JDK11, path /usr/lib/jvm/java-11-openjdk (use as per your installation)
+Maven: Name M3, path /usr/share/maven
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Create Maven Web App Project
+------------------------------------------------------------------------------------------------------------------------------------------------------
+
+mkdir webapp-ci && cd webapp-ci
+
+mvn archetype:generate -DgroupId=com.example -DartifactId=mywebapp -DarchetypeArtifactId=maven-archetype-webapp -DinteractiveMode=false
+
+cd mywebapp
+
+Create these files:
+
+src/main/java/com/example/HelloServlet.java   digitalk.fmw@gmail.com 
+
+package com.example;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+public class HelloServlet extends HttpServlet {
+  protected void doGet(HttpServletRequest req, HttpServletResponse res)
+      throws ServletException, IOException {
+    res.setContentType("text/html");
+    res.getWriter().println("<h1>Hello from WebLogic!</h1>");
+  }
+}
+
+
+src/main/webapp/index.html
+
+<!DOCTYPE html>
+<html><body>
+  <h2>Welcome to MyWebApp</h2>
+  <a href="hello">Hello Servlet</a>
+</body></html>
+
+
+src/main/webapp/WEB-INF/web.xml
+
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee" version="3.1">
+  <servlet><servlet-name>HelloServlet</servlet-name><servlet-class>com.example.HelloServlet</servlet-class></servlet>
+  <servlet-mapping><servlet-name>HelloServlet</servlet-name><url-pattern>/hello</url-pattern></servlet-mapping>
+  <welcome-file-list><welcome-file>index.html</welcome-file></welcome-file-list>
+</web-app>
+
+src/test/java/com/example/BasicTest.java
+
+package com.example;
+import org.junit.jupiter.api.*;
+import static org.junit.jupiter.api.Assertions.*;
+public class BasicTest {
+  @Test void testTrue() { assertTrue(true); }
+}
+
+
+Edit pom.xml to include:
+
+<packaging>war</packaging>
+<dependencies>
+  <dependency><groupId>jakarta.servlet</groupId><artifactId>jakarta.servlet-api</artifactId><version>4.0.4</version><scope>provided</scope></dependency>
+  <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.8.2</version><scope>test</scope></dependency>
+</dependencies>
+
+
+Final pom.xml
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.example</groupId>
+  <artifactId>mywebapp</artifactId>
+  <packaging>war</packaging>
+  <version>1.0-SNAPSHOT</version>
+  <name>mywebapp Maven Webapp</name>
+  <url>http://maven.apache.org</url>
+
+  <dependencies>
+    <!-- Jakarta Servlet API (provided by WebLogic) -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>4.0.4</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- JUnit 5 (Jupiter) for unit testing -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.8.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>mywebapp</finalName>
+  </build>
+</project>
+
+
+Test build:
+
+mvn clean package
+mvn test
+ls target/mywebapp.war
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Push Project to GitHub
+------------------------------------------------------------------------------------------------------------------------------------------------------
+git config user.email "digitalk.fmw@gmail.com"
+git config user.name "digitalkfmw"
+
+git init
+git add .
+git commit -m "Initial mywebapp"
+git remote add origin https://github.com/digitalkfmw/my-webapp.git
+git branch -M main
+git push -u origin main
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Repository Webhook in GitHub
+------------------------------------------------------------------------------------------------------------------------------------------------------
+- Auto detect code changes on GitHub and initiate build and deployment 
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Add Jenkinsfile and deploy.py Locally
+------------------------------------------------------------------------------------------------------------------------------------------------------
+cd ~/webapp-ci/mywebapp
+
+################################## deploy.py
+
+import sys
+
+# Read CLI arguments passed from Jenkins pipeline
+adminUrl = sys.argv[1]
+username = sys.argv[2]
+password = sys.argv[3]
+appPath  = sys.argv[4]
+appName  = sys.argv[5]
+target   = sys.argv[6]   # Accept cluster name like 'DemoCluster'
+
+# Connect to Admin Server
+connect(username, password, adminUrl)
+
+# Deploy WAR to the specified cluster
+print('Deploying', appName, 'to target:', target)
+deploy(appName=appName, path=appPath, targets=target, upload='true')
+
+# Disconnect from Admin Server
+disconnect()
+exit()
+
+
+################################### Pipeline
+pipeline {
+    agent any
+
+    tools {
+        maven 'M3'     // Replace with your Maven tool name in Jenkins
+        jdk 'JDK11'    // Replace with your JDK tool name in Jenkins
+    }
+
+    environment {
+        WLST_PATH    = '/u01/data/middleware/oracle_common/common/bin/wlst.sh'
+        ADMIN_URL    = 't3://172.31.41.166:7001'
+        ADMIN_USER   = 'weblogic'
+        ADMIN_PASS   = 'weblogic123'
+        APP_NAME     = 'mybank'
+        WAR_PATH     = 'target/mywebapp.war'
+        CLUSTER_NAME = 'DemoCluster'
+        SCRIPT       = 'deploy.py'
+    }
+
+    triggers {
+        githubPush()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build WAR') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Deploy to WebLogic Cluster') {
+            steps {
+                sh """
+                ${WLST_PATH} ${SCRIPT} ${ADMIN_URL} ${ADMIN_USER} ${ADMIN_PASS} ${WAR_PATH} ${APP_NAME} ${CLUSTER_NAME}
+                """
+            }
+        }
+    }
+}
+
+
+Commit and push:
+
+git add Jenkinsfile deploy.py
+git commit -m "Add Jenkinsfile and WebLogic deploy script"
+git push
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Configure Jenkins Pipeline Job
+------------------------------------------------------------------------------------------------------------------------------------------------------
+New Item :
+name: mywebapp-pipeline
+type: Pipeline 
+
+Under Pipeline:
+
+Definition: Pipeline script from SCM
+SCM: Git
+Repository URL: https://github.com/digitalkfmw/demorepo.git
+Branch: main
+
+Under Build Triggers:
+Check GitHub hook trigger for GITScm polling
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Configure Credentials
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Go to Manage Jenkins → Credentials → System → Global credentials (unrestricted)
+
+Add:
+Kind: Username with password
+ID: wl-creds
+Username: weblogic
+Password: your WebLogic admin password
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Push a change, and initiate build from jenkins:
+------------------------------------------------------------------------------------------------------------------------------------------------------
+git commit -am "Trigger CI/CD"
+git push
+
+===== > Trigger & Verify Everything (For auto trigger)
+------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Validate Deployment on WebLogic Console 
