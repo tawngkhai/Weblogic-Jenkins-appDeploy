@@ -1,0 +1,32 @@
+#jenkinsfile for Weblogic deployment
+#Create a Jenkins Pipeline Job
+#In Jenkins UI: Go to 'New Item', Name: Deploy-To-WebLogic, Select: Pipeline, Click OK
+#
+#Paste the following pipeline into the Pipeline Script field
+#Run and Verify
+#Save the Jenkins pipeline.
+#Click "Build Now".
+
+pipeline {
+    agent any
+    environment {
+        WLST_PATH = '/u01/data/middleware/oracle_common/common/bin/wlst.sh'    // update this
+        ADMIN_URL = 't3://172.31.41.166:7001'
+        ADMIN_USER = 'weblogic'        // Replace with your user
+        ADMIN_PASS = 'weblogic123'     // Use Jenkins credentials if needed
+        APP_NAME = 'mybank'
+        WAR_PATH = 'mybank.war'
+        SCRIPT = 'deploy.py'
+    }
+    stages {
+        stage('Deploy WAR to WebLogic') {
+            steps {
+                dir('/u01/jenkins/code') {
+                    sh """
+                    ${WLST_PATH} ${SCRIPT} ${ADMIN_URL} ${ADMIN_USER} ${ADMIN_PASS} ${WAR_PATH} ${APP_NAME}
+                    """
+                }
+            }
+        }
+    }
+}
